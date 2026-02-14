@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="cochca.AppHost/cochca.AppHost.csproj" />
+  <Project Path="cochca.ServiceDefaults/cochca.ServiceDefaults.csproj" />
+  <Project Path="cochca/cochca.csproj" />
+</Solution>
