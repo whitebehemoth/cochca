@@ -1,7 +1,7 @@
 using cochca.Components;
 using cochca.Hubs;
 using cochca.Services;
-using Microsoft.AspNetCore.DataProtection;
+//using Microsoft.AspNetCore.DataProtection;
 
 namespace cochca;
 
@@ -12,9 +12,9 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
         builder.AddServiceDefaults();
 
-        // Add Data Protection with ephemeral key (for single replica or sticky sessions)
-        builder.Services.AddDataProtection()
-            .PersistKeysToFileSystem(new DirectoryInfo("/tmp/keys"));
+        //// Add Data Protection with ephemeral key (for single replica or sticky sessions)
+        //builder.Services.AddDataProtection()
+        //    .PersistKeysToFileSystem(new DirectoryInfo("/tmp/keys"));
 
         // Add services to the container.
         builder.Services.AddRazorComponents()

@@ -136,7 +136,7 @@ async function startLocalMedia() {
     });
 }
 
-async function setupSignalR() {
+async function setupSignalR(shouldJoin = true) {
     connection = new signalR.HubConnectionBuilder()
         .withUrl("/hubs/webrtc")
         .withAutomaticReconnect()
@@ -169,7 +169,11 @@ async function setupSignalR() {
     });
 
     await connection.start();
-    await connection.invoke("JoinSession", session);
+    
+    // Only join session if requested (allows connecting before adding tracks)
+    if (shouldJoin) {
+        await connection.invoke("JoinSession", session);
+    }
 }
 
 async function hangupInternal() {
@@ -198,16 +202,26 @@ async function hangupInternal() {
 }
 
 window.webrtc = {
-    start: async function (sessionId) {
-        if (connection || peerConnection) {
-            await hangupInternal();
-        }
+start: async function (sessionId) {
+    if (connection || peerConnection) {
+        await hangupInternal();
+    }
 
-        session = sessionId;
-        await createPeerConnection();
-        await startLocalMedia();
-        await setupSignalR();
-    },
+    session = sessionId;
+        
+    // Step 1: Connect SignalR (registers session) but DON'T join yet
+    await setupSignalR(false);
+        
+    // Step 2: Create PeerConnection (can now fetch TURN credentials - session is registered)
+    await createPeerConnection();
+        
+    // Step 3: Add local media tracks
+    await startLocalMedia();
+        
+    // Step 4: NOW join the session (triggers PeerJoined for other user)
+    // Our tracks are already added, so negotiation will include them
+    await connection.invoke("JoinSession", session);
+},
     hangup: async function () {
         await hangupInternal();
     },
