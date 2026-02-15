@@ -6,7 +6,7 @@ public class LocalizationService
 {
     private readonly ConcurrentDictionary<string, (string Ru, string En)> _strings = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["AppTitle"] = ("Кочка. Простая браузерная звонилка. Сделана Chat GPT 5.2 с подачи Хабра", "Kochka. Simple browser calling app. Made by ChatGPT 5.2 inspired by Habr"),
+        ["AppTitle"] = ("Кочка. Простая браузерная звонилка. Сделана Copilot с бандой агентов.", "Сochka. Simple browser calling app. Made by Copilot. Inspired by Habr"),
         ["HomeTitle"] = ("Локальный звонок", "Local Call"),
         ["HomeIntro"] = ("Создай ссылку и отправь её второму устройству в той же сети.", "Create a link and send it to the other device on the same network."),
         ["CreateSession"] = ("Создать сессию", "Create session"),

@@ -10,7 +10,11 @@
     [string]$ParametersFile = "main.parameters.json",
     
     [Parameter(Mandatory=$true)]
-    [string]$TurnDomain
+    [string]$TurnDomain,
+    
+    [string]$CustomDomain = "",
+    
+    [switch]$SkipVM
 )
 
 
@@ -147,13 +151,18 @@ Write-Host "  - location: $Location" -ForegroundColor Gray
 Write-Host "  - registryServer: $acrLoginServer" -ForegroundColor Gray
 Write-Host "  - registryUsername: $registryUser" -ForegroundColor Gray
 
+# Convert deployVM to string for Azure CLI
+$deployVMValue = if ($SkipVM) { "false" } else { "true" }
+Write-Host "  - deployVM: $deployVMValue" -ForegroundColor Gray
+
 az deployment group create `
 --resource-group $ResourceGroup `
 --template-file $BicepPath `
 --parameters @$ParametersPath `
 --parameters appName=$AppName containerImage=$fullImage location=$Location `
 --parameters registryServer=$acrLoginServer registryUsername=$registryUser registryPassword=$registryPassword `
---parameters turnPassword=$turnPassword turnDomain=$TurnDomain
+--parameters turnPassword=$turnPassword turnDomain=$TurnDomain customDomain=$CustomDomain `
+--parameters deployVM=$deployVMValue
 
 if ($LASTEXITCODE -ne 0) {
     throw "Deployment failed with exit code $LASTEXITCODE"

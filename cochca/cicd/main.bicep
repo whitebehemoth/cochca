@@ -35,6 +35,9 @@ param turnPassword string
 @description('Domain for TURN server (e.g. turn.coch.ca)')
 param turnDomain string = ''
 
+@description('Custom domain for the app (e.g. call.coch.ca). Leave empty to skip.')
+param customDomain string = ''
+
 
 @description('CPU cores for the container')
 param containerCpu string = '0.5'
@@ -54,6 +57,9 @@ param adminUsername string
 @description('SSH public key for the VM')
 param sshPublicKey string
 
+@description('Deploy TURN VM (set to false to skip VM deployment)')
+param deployVM bool = false
+
 @description('VNet name')
 param vnetName string = 'cochca-vnet'
 
@@ -61,7 +67,7 @@ param vnetName string = 'cochca-vnet'
 param subnetName string = 'default'
 
 @description('Public IP name for TURN')
-param publicIpName string = 'turn-pip'
+param publicIpName string = '${vmName}-pip'
 
 @description('NSG name')
 param nsgName string = 'turn-nsg'
@@ -85,16 +91,29 @@ resource managedEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
         customerId: logAnalytics.properties.customerId
-        sharedKey: listKeys(logAnalytics.id, logAnalytics.apiVersion).primarySharedKey
+        sharedKey: logAnalytics.listKeys().primarySharedKey
       }
     }
   }
 }
 
-resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
-  name: appName
+resource managedCertificate 'Microsoft.App/managedEnvironments/managedCertificates@2023-05-01' = if (customDomain != '') {
+  name: 'mc-${environmentName}-${replace(customDomain, '.', '-')}'
+  parent: managedEnv
   location: location
   properties: {
+    subjectName: customDomain
+    domainControlValidation: 'CNAME'
+  }
+}
+
+resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
+name: appName
+location: location
+dependsOn: customDomain == '' ? [] : [
+  managedCertificate
+]
+properties: {
     managedEnvironmentId: managedEnv.id
     configuration: {
       registries: registryServer == '' ? [] : [
@@ -118,6 +137,16 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         external: true
         targetPort: containerPort
         transport: 'auto'
+        stickySessions: {
+          affinity: 'sticky'
+        }
+        customDomains: customDomain == '' ? [] : [
+          {
+            name: customDomain
+            bindingType: 'SniEnabled'
+            certificateId: resourceId('Microsoft.App/managedEnvironments/managedCertificates', environmentName, 'mc-${environmentName}-${replace(customDomain, '.', '-')}')
+          }
+        ]
       }
     }
     template: {
@@ -146,14 +175,14 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
-        maxReplicas: 1
+        minReplicas: 1
+        maxReplicas: 10
       }
     }
   }
 }
 
-resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
+resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = if (deployVM) {
   name: vnetName
   location: location
   properties: {
@@ -173,7 +202,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
   }
 }
 
-resource publicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = {
+resource publicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = if (deployVM) {
   name: publicIpName
   location: location
   sku: {
@@ -184,7 +213,7 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = {
   }
 }
 
-resource nsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
+resource nsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = if (deployVM) {
   name: nsgName
   location: location
   properties: {
@@ -235,7 +264,7 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
   }
 }
 
-resource nic 'Microsoft.Network/networkInterfaces@2023-11-01' = {
+resource nic 'Microsoft.Network/networkInterfaces@2023-11-01' = if (deployVM) {
   name: '${vmName}-nic'
   location: location
   properties: {
@@ -259,7 +288,7 @@ resource nic 'Microsoft.Network/networkInterfaces@2023-11-01' = {
   }
 }
 
-resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
+resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = if (deployVM) {
   name: vmName
   location: location
   properties: {
@@ -269,8 +298,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = {
     osProfile: {
       computerName: vmName
       adminUsername: adminUsername
-      customData: base64('''
-#!/bin/bash
+      customData: base64(format('''#!/bin/bash
 set -e
 
 # Wait for cloud-init to finish
@@ -286,8 +314,8 @@ listening-port=3478
 tls-listening-port=5349
 fingerprint
 use-auth-secret
-static-auth-secret=${TURN_PASSWORD}
-realm=${TURN_DOMAIN}
+static-auth-secret={0}
+realm={1}
 total-quota=100
 stale-nonce=600
 no-stdout-log
@@ -295,20 +323,13 @@ log-file=/var/log/turnserver.log
 simple-log
 EOF
 
-# Set TURN password and domain from metadata
-TURN_PASSWORD="''') + turnPassword + '''"
-TURN_DOMAIN="''') + (empty(turnDomain) ? 'turn.example.com' : turnDomain) + '''"
-
-sed -i "s/\${TURN_PASSWORD}/$TURN_PASSWORD/g" /etc/turnserver.conf
-sed -i "s/\${TURN_DOMAIN}/$TURN_DOMAIN/g" /etc/turnserver.conf
-
 # Enable and start coturn
 sed -i 's/#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/' /etc/default/coturn
 systemctl enable coturn
 systemctl start coturn
 
 echo "Coturn installed and configured successfully"
-''')
+''', turnPassword, (empty(turnDomain) ? 'turn.example.com' : turnDomain)))
       linuxConfiguration: {
         disablePasswordAuthentication: true
         ssh: {
@@ -343,4 +364,4 @@ echo "Coturn installed and configured successfully"
 }
 
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
-output turnPublicIp string = publicIp.properties.ipAddress
+output turnPublicIp string = deployVM ? publicIp!.properties.ipAddress : ''
