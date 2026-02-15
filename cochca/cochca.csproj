@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>213a358d-f875-4b18-8678-05c5eb729e58</UserSecretsId>
+    
+    <!-- Container settings -->
+    <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
+    <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:10.0</ContainerBaseImage>
+    <ContainerPort>8080;8081</ContainerPort>
+    <ContainerRuntimeIdentifier>linux-x64</ContainerRuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Logs\app-final-fix.css" />
+    <Content Include="Logs\app-fixes.css" />
+    <Content Include="Logs\app-new-layout.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\cochca.ServiceDefaults\cochca.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

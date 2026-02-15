@@ -1,0 +1,14 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "eastus2" },
+    "appName": { "value": "cochca" },
+    "environmentName": { "value": "cochca-env" },
+    "logAnalyticsName": { "value": "cochca-logs" },
+    "containerPort": { "value": 8080 },
+    "vmName": { "value": "cochca-turn" },
+    "adminUsername": { "value": "azureuser" },
+    "sshPublicKey": { "value": "ADD_YOUR_SSH_PUBLIC_KEY_HERE" }
+  }
+}
